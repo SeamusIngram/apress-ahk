@@ -1,13 +1,9 @@
-# B0XX-AHK
+# APRESS-AHK
+apress-ahk is an Autohotkey script emulating the experimental Analog Press control scheme through a keyboard within Dolphin. It is a fork of [b0xx-ahk](https://github.com/agirardeau/b0xx-ahk) by agirardeau, which in turn is an adaptation of a [similar script](https://github.com/tlandegger/smashbox-AHK) for Smashbox created by tlandegger.
 
-b0xx-ahk is an Autohotkey script emulating B0XX behavior through a keyboard within Dolphin. It is an adaptation of a [similar script](https://github.com/tlandegger/smashbox-AHK) for Smashbox created by tlandegger.
+Analog press is a digital to analog (DTA) input scheme which I created, that aims to make digital controllers more 'analog-like'. You can read about how it works [here](https://github.com/SeamusIngram/analog-press). I wanted to allow people the chance to actually play the game and provide feedback on this control scheme, without needing to buy a DIY controller, since the only other way to play is with Arte's [pico-rectangle firmware](https://github.com/SeamusIngram/pico-rectangle/tree/analog-press).
 
-The B0XX functionality provided is *incomplete*. Missing behavior includes:
-
-* Pivot utilt/angled ftilt nerf
-* SDI nerf
-
-I am unaffiliated with the creators/producers of the B0XX. 
+I am unaffiliated with the creators/producers of the B0XX, or the developers of the other keyboard melee options. 
 
 # Requirements
 
@@ -15,13 +11,16 @@ I am unaffiliated with the creators/producers of the B0XX.
 2. Keyboard with high n-key rollover. N-key rollover determines how many keys can be pressed simultaneously. Most gaming and mechanical keyboards are sufficient in this respect, while most laptop and non-gaming keyboards are not. Some non-gaming keyboards may also allow sufficient simultaneous key presses for only certain keys. Use something like www.keyboardchecker.com to check the behavior of yours.
 3. Dolphin. Slippi 2.0.3+ and Faster Melee 5.9F have been tested, other Dolphin versions will probably work as well.
 4. vJoy, a joystick emulator. Download and installation instructions are provided under Setup below. 
-
+5. Autohotkey. Other versions of keyboard melee do not require AHK, as you can just run an executable compiled by the author. However, Windows Defender will erroneously flag this version as a threat, meaning you will have to download AHK on your computer to run the script. I did not want to include a file that might cause your antivirus to freak out. You can confirm that it's harmless by looking at the b0xx.ahk file. Setup also below.
+6. AHK-CvJoyInterface. This is the library that allows us to use vJoy with the AHK script. Since the script isn't compiled, you will need to download this dependency youself.
 # Setup
 
 1. Download vJoy from https://sourceforge.net/projects/vjoystick/?source=typ_redirect. After installing, run "Configure vJoy" (can be found by searching in the start menu). Set the number of buttons to 12 and hit apply.
-2. Place the b0xx-keyboard.ini file inside the \<YourDolphinInstallation\>\User\Config\Profiles\GCPad folder, creating any subfolders that do not already exist. If you're using SmashLadder Dolphin Launcher, your Dolphin instances might be in C:\Users\\\<YourUsername\>\AppData\Roaming\SmashLadder Dolphin Launcher\dolphin_downloads.
-3. In Dolphin, open up the controller config. Set player 1 to Standard Controller, then hit configure. Under Profile, select b0xx-keyboard and hit load. Verify that Device is set to DInput/0/vJoy. Hit OK.
-4. Place the b0xx.exe and hotkeys.ini files from this repo in the same directory on your computer. Run b0xx.exe.
+2. Download Autohotkey from https://www.autohotkey.com. Choose the current version. Now you will be able to run .ahk files without needing to compile into .exe
+3. Install AHK-CvJoyInterface, a library for linking Autohotkey and vJoy. Download CvJoyInterface.ahk from https://github.com/evilC/AHK-CvJoyInterface and place it inside Autohotkey's Lib folder (for me this was located at C:\Program Files\AutoHotkey\Lib). Create the Lib folder if it does not already exist. 
+4. Place the b0xx-keyboard.ini file inside the \<YourDolphinInstallation\>\User\Config\Profiles\GCPad folder, creating any subfolders that do not already exist. If you're using SmashLadder Dolphin Launcher, your Dolphin instances might be in C:\Users\\\<YourUsername\>\AppData\Roaming\SmashLadder Dolphin Launcher\dolphin_downloads.
+5. In Dolphin, open up the controller config. Set player 1 to Standard Controller, then hit configure. Under Profile, select b0xx-keyboard and hit load. Verify that Device is set to DInput/0/vJoy. Hit OK.
+6. Place the b0xx.ahk and hotkeys.ini files from this repo in the same directory on your computer. Run b0xx.ahk.
 
 # Configuration
 
@@ -41,8 +40,8 @@ The numbered lines in hotkeys.ini correspond to the following buttons:
 2. Analog Down
 3. Analog Left
 4. Analog Right
-5. ModX
-6. ModY
+5. Notch/ModX
+6. Slow/ModY
 7. A
 8. B
 9. L
@@ -55,7 +54,7 @@ The numbered lines in hotkeys.ini correspond to the following buttons:
 16. C-Left
 17. C-Right
 18. Light Shield
-19. Mid Shield
+19. Hold/Mid Shield
 20. Start
 21. D-Up
 22. D-Down
@@ -64,15 +63,15 @@ The numbered lines in hotkeys.ini correspond to the following buttons:
 25. Debug
 
 # Default Controls
+![Default Layout](default-layout.png)
 
-The [default layout](https://raw.githubusercontent.com/agirardeau/b0xx-ahk/master/default-layout.jpg) is chosen to avoid keys that would interfere with normal computer usage (ctrl, tab, enter, etc) or are not present on all keyboards (numpad, F-keys), as well as to work passably on keyboards with poor n-key rollover properties. You can probably find a better layout for you by using additional keys and taking into account your particular hands and keyboard. Some community-sourced suggestions are provided [here](https://raw.githubusercontent.com/agirardeau/b0xx-ahk/master/suggested-layouts.png).
+The default layout is chosen to avoid keys that would interfere with normal computer usage (ctrl, tab, enter, etc) or are not present on all keyboards (numpad, F-keys), as well as to work passably on keyboards with poor n-key rollover properties. You can probably find a better layout for you by using additional keys and taking into account your particular hands and keyboard. Some community-sourced suggestions are provided [here](https://raw.githubusercontent.com/agirardeau/b0xx-ahk/master/suggested-layouts.png). 
 
-Ctrl-Alt-S pauses and unpauses the Autohotkey script.
+Note that pressing ModX and ModY together does not turn your C-Stick into the D-pad, like it would on b0xx. Instead, you just have the dedicated buttons. I was too lazy to program in the C-Stick to D-pad functionality
+
+One more thing to note for layouts is that modifier keys and directional inputs should not be pressed with the same fingers. There are situations where you will want to be pressing a direction along with at least one modifier. Therefore, it makes sense to put them on separate fingers. This is relevant because a common layout has medium shield and analog up both pressed by your right pinky, which is not ideal for this scheme. You might need to adjust your layout to find something more comfortable. Also note that you might want to hold slow and hold together, as well as notch and hold**, so it's best not to have them pressed by the same finger, which is why the layout places notch and slow* by your left thumb. It's not ideal to switch which modifier goes where (ie. don't swap your ModX and Medium shield buttons).
 
 # Troubleshooting
-
-For general assistance with installation and setup, check out the B0XX discord (link can be found on [b0xx.com](b0xx.com)). People there are pretty friendly and there's usually
-someone around who can help.
 
 ## Error: "\<key\>" is not a valid key name
 
@@ -86,8 +85,7 @@ Some people may get this error despite not having made an invalid change to hotk
 * Make sure any keys like Shift, Control, Tab, etc have their default behavior disabled in the GUI.
 * Try restarting the Autohotkey script.
 * In 20XX (or similar), enter debug mode (Start + D-Pad right twice) and turn on controller display (Y + D-Pad left) and analog stick coordinate display (X + D-Pad right, purple numbers). Check whether the expected inputs are being passed from Autohotkey to Melee.
-* Use the GUI to add a "debug" hotkey, hold down the keys related to your technique, and press debug. The dialog box that appears will tell you whether the script is actually seeing all of your button presses.
-* Hmu (TuberLuber on Discord/Reddit) or file an issue on Github.
+* File an issue on Github.
 
 ## Holding left and right continuously causes the character to dashdance, or up and down causes the character to repeatedly jump/fastfall
 
@@ -101,9 +99,8 @@ This is a glitch in melee itself, see: https://imgur.com/a/Tf3eKJQ
 
 ## Requirements
 
-1. Install Autohotkey from https://autohotkey.com/.
-2. Install AHK-CvJoyInterface, a library for linking Autohotkey and vJoy. Download CvJoyInterface.ahk from https://github.com/evilC/AHK-CvJoyInterface and place it inside Autohotkey's Lib folder (for me this was located at C:\Program Files\AutoHotkey\Lib). Create the Lib folder if it does not already exist. 
+Since we install AHK and CvJoyInterface to run the script already, there are no additional requirements to work on the code. Just open b0xx.ahk in your favorite text editor.
 
 ## General
 
-After making changes to b0xx.ahk, recompile b0xx.exe by right-clicking b0xx.ahk and selecting "Compile Script." Autohotkey must be installed.
+After making changes to b0xx.ahk, you can recompile b0xx.exe by right-clicking b0xx.ahk and selecting "Compile Script." Autohotkey must be installed. If your Windows Defender is like mine, you will get a threat warning, and not be allowed to run your .exe
