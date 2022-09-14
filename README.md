@@ -63,13 +63,13 @@ The numbered lines in hotkeys.ini correspond to the following buttons:
 25. Debug
 
 # Default Controls
-![Default Layout](default-layout.png)
+![Default Layout](default-layout.PNG)
 
 The default layout is chosen to avoid keys that would interfere with normal computer usage (ctrl, tab, enter, etc) or are not present on all keyboards (numpad, F-keys), as well as to work passably on keyboards with poor n-key rollover properties. You can probably find a better layout for you by using additional keys and taking into account your particular hands and keyboard. Some community-sourced suggestions are provided [here](https://raw.githubusercontent.com/agirardeau/b0xx-ahk/master/suggested-layouts.png). 
 
 Note that pressing ModX and ModY together does not turn your C-Stick into the D-pad, like it would on b0xx. Instead, you just have the dedicated buttons. I was too lazy to program in the C-Stick to D-pad functionality
 
-One more thing to note for layouts is that modifier keys and directional inputs should not be pressed with the same fingers. There are situations where you will want to be pressing a direction along with at least one modifier. Therefore, it makes sense to put them on separate fingers. This is relevant because a common layout has medium shield and analog up both pressed by your right pinky, which is not ideal for this scheme. You might need to adjust your layout to find something more comfortable. Also note that you might want to hold slow and hold together, as well as notch and hold**, so it's best not to have them pressed by the same finger, which is why the layout places notch and slow* by your left thumb. It's not ideal to switch which modifier goes where (ie. don't swap your ModX and Medium shield buttons).
+One more thing to note for layouts is that modifier keys and directional inputs should not be pressed with the same fingers. There are situations where you will want to be pressing a direction along with at least one modifier. Therefore, it makes sense to put them on separate fingers. This is relevant because a common layout has medium shield and analog up both pressed by your right pinky, which is not ideal for this scheme. You might need to adjust your layout to find something more comfortable. Also note that you might want to hold slow and hold together, as well as **notch** and **hold**, so it's best not to have them pressed by the same finger, which is why the layout places notch and **slow** by your left thumb. It's not ideal to switch which modifier goes where (ie. don't swap your **notch** and **hold** buttons).
 
 # Troubleshooting
 
