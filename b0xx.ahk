@@ -88,11 +88,8 @@ resetHold := true
 dxAccum = 0
 dyAccum = 0
 xy := [0, 0]
-; target coordinate constants
+; Constants
 PI := 4 * ATan(1)
-coordsShieldDrop := [56, 55]
-coordsNotchHorizontal := [73, 31]
-coordsNotchVertical := [31, 73]
 
 Menu, Tray, Click, 1
 Menu, Tray, Add, Edit Controls, ShowGui
@@ -147,9 +144,9 @@ while(true){
   updateAnalogStick()
   updateCStick()
   updateLS()
-  ;Sleep 1
 }
 
+; Implement 2nd input priority, with no reactivation
 SOCD(){
   global
   if (leftPressed and left() and right() and not rightPressed)
@@ -187,6 +184,7 @@ SOCD(){
 
 }
 
+; Set states of digital values
 updateButtons(){
   global
   for k, v in digital_buttons{
@@ -202,6 +200,7 @@ updateCStick(){
   setCStick(getCStickCoords())
 }
 
+; Light Shield
 updateLS(){
   global
   if states["Light Shield"]
@@ -248,6 +247,7 @@ getAnalogCoords() {
   return scaleCoords(xy)
 }
 
+; Coordinate cursor will travel towards
 target(){
   if neither(anyVert(), anyHoriz()) 
     coords := [0, 0]
@@ -260,6 +260,8 @@ target(){
   return reflectCoords(coords)
 }
 
+; Divide the coordinate plane into 9 regions, needed for rolling the stick
+; 4 cardinals, 4 diagonals and the deadzone
 getRegion(coords){
   x := coords[1]
   y := coords[2]
@@ -290,6 +292,7 @@ getRegion(coords){
   return region
 }
 
+; Determine if the stick is rolling clockwise or counterclockwise
 directionOfChange(coords,targetCoords,region) {
   if (region == 1 or region == 2 or region == 8)
     ccw := coords[2] < targetCoords[2]
@@ -302,6 +305,7 @@ directionOfChange(coords,targetCoords,region) {
   return ccw
 }
 
+; Find the central angle between 2 points on a circle
 angleToTarget(coords,targetCoords){
   x := coords[1]
   y := coords[2]
@@ -314,13 +318,13 @@ angleToTarget(coords,targetCoords){
   return theta
 }
 
+; Find the distance components from one point on a circle to another
 rollToPoint(coords,theta,currentTheta){
   global
   local dx,dy,p
   dx := 80*(Cos(theta)-Cos(currentTheta))
   dy := 80*(Sin(theta)-Sin(currentTheta))
   targetPoint :=[coords[1]+sign(dx)*Abs(Floor(dx)),coords[2]+sign(dy)*Abs(Floor(dy))]
-  ;MsgBox % counterClockwise "`n new angle " theta "`n starting angle" currentTheta "`n coords" xy[1]","xy[2] "`n dx "dx "`n dy "dy "`n target" targetPoint[1]","targetPoint[2]
   p := quantize(dx,dy)
   return p
 }
@@ -328,7 +332,8 @@ rollToPoint(coords,theta,currentTheta){
 getAnalogCoordsHolding(){
   global
   local coords
-  
+  ; Hold at the current point, unless you have let go of all buttons
+  ; Your cursor will travel to, and stay at 0,0 until hold is released
   if not noPressed() and resetHold
     coords := [xy[1],xy[2]]
   else{
@@ -346,7 +351,6 @@ getAnalogCoordsHolding(){
 getAnalogCoordsRolling(){
   global
   local theta,currentTheta,coords
-  ;MsgBox Rolling
   theta := d/80
   currentTheta := atan2(xy[2],xy[1])
   counterClockwise := directionOfChange(xy,targetPoint,currentRegion)
@@ -355,9 +359,12 @@ getAnalogCoordsRolling(){
     newTheta -= 2*PI
   else if (newTheta < -1*PI)4
     newTheta += 2*PI
+  ; Notch
   if (states["notch"] and Mod(currentRegion, 2) == 0 and Mod(targetRegion, 2) == 1){
+    ;Vertical Notch
     if (((currentRegion == 2 or currentRegion == 4) and targetRegion ==3) or ((currentRegion == 6 or currentRegion == 8) and targetRegion == 7))
       targetPoint := reflectByRegion([31,73],currentRegion)
+    ; Horizontal
     else  
       targetPoint := reflectByRegion([73,31],currentRegion)
     thetaMax := angleToTarget(xy,targetPoint)
@@ -366,6 +373,7 @@ getAnalogCoordsRolling(){
     else  
       coords := rollToPoint(xy,newTheta,currentTheta)
   }
+  ; Shield Drop
   else if ((states["L"] or states["R"] or states["Light Shield"]) and Mod(targetRegion, 2) == 0 and xy[2]<targetPoint[2]) {
     targetPoint := reflectByRegion([56,55],currentRegion)
     thetaMax := angleToTarget(xy,targetPoint)
@@ -374,9 +382,9 @@ getAnalogCoordsRolling(){
     else  
       coords := rollToPoint(xy,newTheta,currentTheta)
   }
+  ; Default rolling along gate
   else {
     thetaMax := angleToTarget(xy,targetPoint)
-    ;MsgBox % theta "`n" thetaMax
     if (theta >= Abs(thetaMax)) or (xy[1] == targetPoint[1]) or (xy[2] == targetPoint[2])
       coords := [targetPoint[1],targetPoint[2]]
     else  
@@ -388,6 +396,7 @@ getAnalogCoordsRolling(){
 getAnalogCoordsDefault(){
   global
   local theta,dx,dy,coords
+  ; Travel in a straight line between
   theta := atan2(targetPoint[2]-xy[2],targetPoint[1]-xy[1])
   dx := (Floor(targetPoint[1]) == Floor(xy[1])) ? 0 : d*Cos(theta)
   dy := d*Sin(theta)
@@ -398,12 +407,17 @@ getAnalogCoordsDefault(){
   return coords
 }
 
+; The original code expects values -1 to 1
+; I worked from -80 to 80
 scaleCoords(coords) {
   x := coords[1]
   y := coords[2]
   return [x/80, y/80]
 }
 
+; The reported coordinate must be an integer from -80 to 80
+; components dx and dy must be made into ints, but we need to accumulate the decimal values
+; if not, if d is always < 1 (which happens for slow movements) the stick would never move
 quantize(dx,dy){
   global
   local x,y,theta,adjustX,adjustY,adjusted = false
