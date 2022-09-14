@@ -7,8 +7,8 @@ hotkeys := [ "Analog Up"             ; 1
            , "Analog Down"           ; 2
            , "Analog Left"           ; 3
            , "Analog Right"          ; 4
-           , "ModX"                  ; 5
-           , "ModY"                  ; 6
+           , "Notch"                 ; 5
+           , "Slow"                  ; 6
            , "A"                     ; 7
            , "B"                     ; 8
            , "L"                     ; 9
@@ -21,13 +21,78 @@ hotkeys := [ "Analog Up"             ; 1
            , "C-stick Left"          ; 16
            , "C-stick Right"         ; 17
            , "Light Shield"          ; 18
-           , "Mid Shield"            ; 19
+           , "Hold"                  ; 19
            , "Start"                 ; 20
            , "D-pad Up"              ; 21
            , "D-pad Down"            ; 22
            , "D-pad Left"            ; 23
            , "D-pad Right"           ; 24
            , "Debug"]                ; 25
+
+states := {  "Analog Up":0             ; 1
+           , "Analog Down":0           ; 2
+           , "Analog Left":0           ; 3
+           , "Analog Right":0          ; 4
+           , "Notch":0                 ; 5
+           , "Slow":0                  ; 6
+           , "A":0                     ; 7
+           , "B":0                     ; 8
+           , "L":0                     ; 9
+           , "R":0                     ; 10
+           , "X":0                     ; 11
+           , "Y":0                     ; 12
+           , "Z":0                     ; 13
+           , "C-stick Up":0            ; 14
+           , "C-stick Down":0          ; 15
+           , "C-stick Left":0          ; 16
+           , "C-stick Right":0         ; 17
+           , "Light Shield":0          ; 18
+           , "Hold":0                  ; 19
+           , "Start":0                 ; 20
+           , "D-pad Up":0              ; 21
+           , "D-pad Down":0            ; 22
+           , "D-pad Left":0            ; 23
+           , "D-pad Right":0           ; 24
+           , "Debug":0}                ; 25
+
+; vJoy buttons to send, from the configuration file
+digital_buttons := { "A":5                     
+                   , "B":4                     
+                   , "L":1                     
+                   , "R":3                     
+                   , "X":6                     
+                   , "Y":2                     
+                   , "Z":7                                    
+                   , "Start":8                 
+                   , "D-pad Up":9              
+                   , "D-pad Down":11            
+                   , "D-pad Left":10          
+                   , "D-pad Right":12}           
+
+; SOCD 
+leftPressed := false
+rightPressed := false
+upPressed := false
+downPressed := false
+forbidLeft := false
+forbidRight := false
+forbidUp := false
+forbidDown := false
+; Stick Speeds
+V_FAST := 5
+V_SLOW := 0.5
+V_RETURN := 3
+V_ROLL := 3 
+; Analog Press parameters
+resetHold := true
+dxAccum = 0
+dyAccum = 0
+xy := [0, 0]
+; target coordinate constants
+PI := 4 * ATan(1)
+coordsShieldDrop := [56, 55]
+coordsNotchHorizontal := [73, 31]
+coordsNotchVertical := [31, 73]
 
 Menu, Tray, Click, 1
 Menu, Tray, Add, Edit Controls, ShowGui
@@ -37,8 +102,8 @@ for index, element in hotkeys{
  Gui, Add, Text, xm vLB%index%, %element% Hotkey:
  IniRead, savedHK%index%, hotkeys.ini, Hotkeys, %index%, %A_Space%
  If savedHK%index%                                       ;Check for saved hotkeys in INI file.
-  Hotkey,% savedHK%index%, Label%index%                 ;Activate saved hotkeys if found.
-  Hotkey,% savedHK%index% . " UP", Label%index%_UP                 ;Activate saved hotkeys if found.
+  ; Hotkey,% savedHK%index%, Label%index%                 ;Activate saved hotkeys if found.
+  ; Hotkey,% savedHK%index% . " UP", Label%index%_UP                 ;Activate saved hotkeys if found.
   ;TrayTip, B0XX, Label%index%_UP, 3, 0
   ;TrayTip, B0XX, % savedHK%A_Index%, 3, 0
   ;TrayTip, B0XX, % savedHK%index% . " UP", 3, 0
@@ -53,10 +118,7 @@ for index, element in hotkeys{
   Gui, Add, CheckBox, x+5 vCB%index% gGuiLabel, Prevent Default Behavior  ;Add checkboxes to allow the Windows key (#) as a modifier..
  else
   Gui, Add, CheckBox, x+5 vCB%index% Checked gGuiLabel, Prevent Default Behavior  ;Add checkboxes to allow the Windows key (#) as a modifier..
-}                                                               ;Check the box if Win modifier is used.
-
-;----------Start Hotkey Handling-----------
-
+}
 ; Create an object from vJoy Interface Class.
 vJoyInterface := new CvJoyInterface()
 
@@ -68,211 +130,344 @@ if (!vJoyInterface.vJoyEnabled()) {
 }
 
 myStick := vJoyInterface.Devices[1]
-
-; Alert User that script has started
 TrayTip, B0XX, Script Started, 3, 0
 
-; state variables
-buttonUp := false
-buttonDown := false
-buttonLeft := false
-buttonRight := false
+; Performance counter frequency, for timings
+DllCall("QueryPerformanceFrequency", "Int64*", freq)
+DllCall("QueryPerformanceCounter", "Int64*", t)
 
-buttonA := false
-buttonB := false
-buttonL := false
-buttonR := false
-buttonX := false
-buttonY := false
-buttonZ := false
-
-buttonLightShield := false
-buttonMidShield := false
-
-buttonModX := false
-buttonModY := false
-
-buttonCUp := false
-buttonCDown := false
-buttonCLeft := false
-buttonCRight := false
-
-mostRecentVertical := ""
-mostRecentHorizontal := ""
-
-mostRecentVerticalC := ""
-mostRecentHorizontalC := ""
-
-simultaneousHorizontalModifierLockout := false
-
-; b0xx constants
-coordsOrigin := [0, 0]
-coordsVertical := [0, 1]
-coordsVerticalModX := [0, 0.5375]
-coordsVerticalModY := [0, 0.7375]
-coordsHorizontal := [1, 0]
-coordsHorizontalModX := [0.6625, 0]
-coordsHorizontalModY := [0.3375, 0]
-coordsQuadrant := [0.7, 0.7]
-coordsQuadrantModX := [0.7375, 0.3125]
-coordsQuadrantModY := [0.3125, 0.7375]
-
-coordsAirdodgeVertical := coordsVertical
-coordsAirdodgeVerticalModX := coordsVerticalModX
-coordsAirdodgeVerticalModY := coordsVerticalModY
-coordsAirdodgeHorizontal := coordsHorizontal
-coordsAirdodgeHorizontalModX := coordsHorizontalModX
-coordsAirdodgeHorizontalModY := coordsHorizontalModY
-coordsAirdodgeQuadrant := [0.7, 0.6875]
-coordsAirdodgeQuadrant12 := [0.7, 0.7]
-coordsAirdodgeQuadrant34 := [0.7, 0.6875]
-coordsAirdodgeQuadrantModX := [0.6375, 0.375]
-coordsAirdodgeQuadrant12ModY := [0.475, 0.875]
-coordsAirdodgeQuadrant34ModY := [0.5, 0.85]
-
-coordsFirefoxModXCDown := [0.7, 0.3625]     ; ~27 deg
-coordsFirefoxModXCLeft := [0.7875, 0.4875]  ; ~32 deg
-coordsFirefoxModXCUp := [0.7, 0.5125]       ; ~36 deg
-coordsFirefoxModXCRight := [0.6125, 0.525]  ; ~41 deg
-coordsFirefoxModYCRight := [0.6375, 0.7625] ; ~50 deg
-coordsFirefoxModYCUp := [0.5125, 0.7]       ; ~54 deg
-coordsFirefoxModYCLeft := [0.4875, 0.7875]  ; ~58 deg
-coordsFirefoxModYCDown := [0.3625, 0.7]     ; ~63 deg
-
-coordsExtendedFirefoxModX := [0.9125, 0.3875]       ; ~23 deg
-coordsExtendedFirefoxModXCDown := [0.875, 0.45]     ; ~27 deg
-coordsExtendedFirefoxModXCLeft := [0.85, 0.525]     ; ~32 deg
-coordsExtendedFirefoxModXCUp := [0.7375, 0.5375]    ; ~36 deg
-coordsExtendedFirefoxModXCRight := [0.6375, 0.5375] ; ~40 deg
-coordsExtendedFirefoxModYCRight := [0.5875, 0.7125] ; ~50 deg
-coordsExtendedFirefoxModYCUp := [0.5875, 0.8]       ; ~54 deg
-coordsExtendedFirefoxModYCLeft := [0.525, 0.85]     ; ~58 deg
-coordsExtendedFirefoxModYCDown := [0.45, 0.875]     ; ~63 deg
-coordsExtendedFirefoxModY := [0.3875, 0.9125]       ; ~67 deg
-
-; Debug info
-lastCoordTrace := ""
-
-; Utility functions
-
-up() {
-  global
-  return buttonUp and mostRecentVertical == "U"
+while(true){
+  for index, element in hotkeys{
+    StringReplace, noMods, savedHK%index%, ~ ;Remove tilde (~) and Win (#) modifiers...
+    StringReplace, noMods, noMods, #
+    states[element] := GetKeyState(noMods)
+  }
+  SOCD()
+  updateButtons()
+  updateAnalogStick()
+  updateCStick()
+  updateLS()
+  ;Sleep 1
 }
 
-down() {
+SOCD(){
   global
-  return buttonDown and mostRecentVertical == "D"
+  if (leftPressed and left() and right() and not rightPressed)
+     forbidLeft := true
+  if (rightPressed and left() and right() and not leftPressed)
+     forbidRight := true
+  if (upPressed and up() and down() and not downPressed)
+     forbidUp := true
+  if (downPressed and up() and down() and not upPressed){
+    forbidDown := true
+  }
+
+  if not left()
+     forbidLeft := false
+  if not right()
+      forbidRight := false
+  if not up()
+     forbidUp := false
+  if not down()
+     forbidDown := false
+
+  leftPressed := left()
+  rightPressed := right()
+  upPressed := up()
+  downPressed := down()
+
+  if forbidLeft
+     states["Analog Left"] := 0
+  if forbidRight
+     states["Analog Right"] := 0
+  if forbidUp
+     states["Analog Up"] := 0
+  if forbidDown
+    states["Analog Down"] := 0
+
 }
 
-left() {
+updateButtons(){
   global
-  return buttonLeft and mostRecentHorizontal == "L"
+  for k, v in digital_buttons{
+      myStick.SetBtn(states[k],v)
+  }
 }
 
-right() {
-  global
-  return buttonRight and mostRecentHorizontal == "R"
-}
-
-cUp() {
-  global
-  return buttonCUp and mostRecentVerticalC == "U" and not bothMods()
-}
-
-cDown() {
-  global
-  return buttonCDown and mostRecentVerticalC == "D" and not bothMods()
-}
-
-cLeft() {
-  global
-  return buttonCLeft and mostRecentHorizontalC == "L" and not bothMods()
-}
-
-cRight() {
-  global
-  return buttonCRight and mostRecentHorizontalC == "R" and not bothMods()
-}
-
-modX() {
-  global
-  ; deactivate if either:
-  ;   - modY is also held
-  ;   - both left and right are held (and were pressed after modX) while neither up or down is active (
-  return buttonModX and not buttonModY and not (simultaneousHorizontalModifierLockout and not anyVert()) 
-}
-
-modY() {
-  global
-  return buttonModY and not buttonModX and not (simultaneousHorizontalModifierLockout and not anyVert())
-}
-
-anyVert() {
-  global
-  return up() or down()
-}
-
-anyHoriz() {
-  global
-  return left() or right()
-}
-
-anyQuadrant() {
-  global
-  return anyVert() and anyHoriz()
-}
-
-anyMod() {
-  global
-  return modX() or modY()
-}
-
-bothMods() {
-  global
-  return buttonModX and buttonModY
-}
-
-anyShield() {
-  global
-  return buttonL or buttonR or buttonLightShield or buttonMidShield
-}
-
-anyVertC() {
-  global
-  return cUp() or cDown()
-}
-
-anyHorizC() {
-  global
-  return cLeft() or cRight()
-}
-
-anyC() {
-  global
-  return cUp() or cDown() or cLeft() or cRight()
-}
-
-; Updates the position on the analog stick based on the current held buttons
-updateAnalogStick() {
+updateAnalogStick(){
   setAnalogStick(getAnalogCoords())
 }
 
-updateCStick() {
+updateCStick(){
   setCStick(getCStickCoords())
+}
+
+updateLS(){
+  global
+  if states["Light Shield"]
+    setAnalogR(49)
+  else
+    setAnalogR(0)
+}
+
+setAnalogStick(coords) {
+  global
+  convertedCoords := convertCoords(coords)
+  myStick.SetAxisByIndex(convertedCoords[1], 1)
+  myStick.SetAxisByIndex(convertedCoords[2], 2)
 }
 
 getAnalogCoords() {
   global
-  if (anyShield()) {
-    coords := getAnalogCoordsAirdodge()
-  } else if (anyMod() and anyQuadrant() and (anyC() or buttonB)) {
-    coords := getAnalogCoordsFirefox()
-  } else {
-    coords := getAnalogCoordsWithNoShield()
-  }
+  DllCall("QueryPerformanceCounter", "Int64*", tNew)
+  dt := (tNew - t)* 1000 / freq 
+  targetPoint := target()
+  currentRegion := getRegion(xy)
+  targetRegion := getRegion(targetPoint)
+  adjacentRegion := Abs(targetRegion-currentRegion) <= 1 or targetRegion+currentRegion == 9
+  rolling := adjacentRegion and xy[1]*xy[1]+xy[2]*xy[2] >= 5625
+  
+  if not states["hold"]
+    resetHold := true
+  if (noPressed())
+    v := V_RETURN
+  else if (states["slow"])
+    v := V_SLOW
+  else if rolling
+    v := V_ROLL
+  else
+    v:= V_FAST
+  d := dt*v
+  if states["hold"] 
+    xy := getAnalogCoordsHolding()
+  else if rolling
+    xy := getAnalogCoordsRolling()
+  else
+    xy := getAnalogCoordsDefault()
+  DllCall("QueryPerformanceCounter", "Int64*", t)
+  return scaleCoords(xy)
+}
 
+target(){
+  if neither(anyVert(), anyHoriz()) 
+    coords := [0, 0]
+  else if (anyVert() and anyHoriz())
+    coords := [56,56]
+  else if (anyVert())
+      coords := [0, 80]
+  else
+      coords := [80, 0]
   return reflectCoords(coords)
+}
+
+getRegion(coords){
+  x := coords[1]
+  y := coords[2]
+  if (x >= 23) {
+    if (y >= 23)
+      region := 2
+    else if (y >= -22)
+      region := 1
+    else
+      region :=8
+  }
+  else if (x >= -22){
+    if (y >= 23)
+      region := 3
+    else if (y >= -22)
+      region := -1
+    else
+      region := 7
+  }
+  else{
+    if (y >= 23)
+      region := 4
+    else if (y >= -22)
+      region := 5
+    else
+      region := 6
+  }
+  return region
+}
+
+directionOfChange(coords,targetCoords,region) {
+  if (region == 1 or region == 2 or region == 8)
+    ccw := coords[2] < targetCoords[2]
+  else if (region >= 4 and region <= 6)
+    ccw := coords[2] > targetCoords[2]
+  else if(region == 3)
+    ccw := coords[1] > targetCoords[1]
+  else    
+    ccw := coords[1] < targetCoords[1]
+  return ccw
+}
+
+angleToTarget(coords,targetCoords){
+  x := coords[1]
+  y := coords[2]
+  tx := targetCoords[1]
+  ty := targetCoords[2]
+  if ((x == 0 and tx = 0) or (y == 0 and ty == 0))
+    theta = 0
+  else  
+    theta := ACos((12800-((x-tx)*(x-tx)+(y-ty)*(y-ty)))/12800)
+  return theta
+}
+
+rollToPoint(coords,theta,currentTheta){
+  global
+  local dx,dy,p
+  dx := 80*(Cos(theta)-Cos(currentTheta))
+  dy := 80*(Sin(theta)-Sin(currentTheta))
+  targetPoint :=[coords[1]+sign(dx)*Abs(Floor(dx)),coords[2]+sign(dy)*Abs(Floor(dy))]
+  ;MsgBox % counterClockwise "`n new angle " theta "`n starting angle" currentTheta "`n coords" xy[1]","xy[2] "`n dx "dx "`n dy "dy "`n target" targetPoint[1]","targetPoint[2]
+  p := quantize(dx,dy)
+  return p
+}
+
+getAnalogCoordsHolding(){
+  global
+  local coords
+  
+  if not noPressed() and resetHold
+    coords := [xy[1],xy[2]]
+  else{
+    resetHold := false
+    targetPoint := [0,0]
+    d := V_RETURN*dt
+    theta := atan2(targetPoint[2]-xy[2],targetPoint[1]-xy[1])
+    dx := (Floor(targetPoint[1]) == Floor(xy[1])) ? 0 : d*Cos(theta)
+    dy := d*Sin(theta)
+    coords := quantize(dx,dy)
+  }
+  return coords
+}
+
+getAnalogCoordsRolling(){
+  global
+  local theta,currentTheta,coords
+  ;MsgBox Rolling
+  theta := d/80
+  currentTheta := atan2(xy[2],xy[1])
+  counterClockwise := directionOfChange(xy,targetPoint,currentRegion)
+  newTheta := counterClockwise ? currentTheta + theta : currentTheta - theta
+  if (newTheta > PI)
+    newTheta -= 2*PI
+  else if (newTheta < -1*PI)4
+    newTheta += 2*PI
+  if (states["notch"] and Mod(currentRegion, 2) == 0 and Mod(targetRegion, 2) == 1){
+    if (((currentRegion == 2 or currentRegion == 4) and targetRegion ==3) or ((currentRegion == 6 or currentRegion == 8) and targetRegion == 7))
+      targetPoint := reflectByRegion([31,73],currentRegion)
+    else  
+      targetPoint := reflectByRegion([73,31],currentRegion)
+    thetaMax := angleToTarget(xy,targetPoint)
+    if (theta >= Abs(thetaMax)) or (xy[1] == targetPoint[1]) or (xy[2] == targetPoint[2])
+      coords := [targetPoint[1],targetPoint[2]]
+    else  
+      coords := rollToPoint(xy,newTheta,currentTheta)
+  }
+  else if ((states["L"] or states["R"] or states["Light Shield"]) and Mod(targetRegion, 2) == 0 and xy[2]<targetPoint[2]) {
+    targetPoint := reflectByRegion([56,55],currentRegion)
+    thetaMax := angleToTarget(xy,targetPoint)
+    if (theta >= Abs(thetaMax)) or (xy[1] == targetPoint[1]) or (xy[2] == targetPoint[2])
+      coords := [targetPoint[1],targetPoint[2]]
+    else  
+      coords := rollToPoint(xy,newTheta,currentTheta)
+  }
+  else {
+    thetaMax := angleToTarget(xy,targetPoint)
+    ;MsgBox % theta "`n" thetaMax
+    if (theta >= Abs(thetaMax)) or (xy[1] == targetPoint[1]) or (xy[2] == targetPoint[2])
+      coords := [targetPoint[1],targetPoint[2]]
+    else  
+      coords := rollToPoint(xy,newTheta,currentTheta)
+  }
+  return coords
+}
+
+getAnalogCoordsDefault(){
+  global
+  local theta,dx,dy,coords
+  theta := atan2(targetPoint[2]-xy[2],targetPoint[1]-xy[1])
+  dx := (Floor(targetPoint[1]) == Floor(xy[1])) ? 0 : d*Cos(theta)
+  dy := d*Sin(theta)
+  coords := quantize(dx,dy)
+  if (coords[1]*coords[1] + coords[2]*coords[2] > 6400){
+    coords := [targetPoint[1]targetPoint[2]]
+  }
+  return coords
+}
+
+scaleCoords(coords) {
+  x := coords[1]
+  y := coords[2]
+  return [x/80, y/80]
+}
+
+quantize(dx,dy){
+  global
+  local x,y,theta,adjustX,adjustY,adjusted = false
+  if Abs(dx) < 1
+    dxAccum += dx
+  if Abs(dy) < 1
+    dyAccum += dy
+  if Abs(dxAccum) > 1{
+    x := xy[1] + sign(dxAccum)*Floor(Abs(dxAccum))
+    dxAccum -= sign(dxAccum)*Floor(Abs(dxAccum))
+    adjusted := true
+  }
+  else{
+    adjustX := Abs(dx) > Abs(targetPoint[1]-xy[1]) ?  targetPoint[1]-xy[1] : dx
+    x := xy[1] + sign(adjustX)*Floor(Abs(adjustX))
+    if Floor(Abs(adjustX)) > 0
+      adjusted = true
+  }
+  if Abs(dyAccum) > 1{
+    y := xy[2] + sign(dyAccum)*Floor(Abs(dyAccum))
+    dyAccum -= sign(dyAccum)*Floor(Abs(dyAccum))
+    adjusted := true
+  }
+  else{
+    adjustY := Abs(dy) > Abs(targetPoint[2]-xy[2]) ?  targetPoint[2]-xy[2] : dy
+    y := xy[2] + sign(adjustY)*Floor(Abs(adjustY))
+    if Floor(Abs(adjustY)) > 0
+      adjusted = true
+  }
+  if adjusted and x*x+y*y >6400{
+    theta := atan2(y,x)
+    if Abs(theta) > PI/4 and Abs(theta) < 3*PI/4
+      y -= sign(y)
+    else
+      x -= sign(x)
+  }
+  return [x,y]
+}
+
+setCStick(coords) {
+  global
+  convertedCoords := convertCoords(coords)
+  myStick.SetAxisByIndex(convertedCoords[1], 4)
+  myStick.SetAxisByIndex(convertedCoords[2], 5)
+}
+
+getCStickCoords() {
+  global
+  if (neither(anyVertC(), anyHorizC()) or bothMods()) {
+    coords := [0, 0]
+  } else if (anyVertC() and anyHorizC()) {
+    coords := [0.525, 0.85]
+  } else if (anyVertC()) {
+      coords := [0, 1]
+  } else {
+    if (states["Notch"] and up()) {
+      coords := [0.9, 0.5]
+    } else if (states["Notch"] and down()) {
+      coords := [0.9, -0.5]
+    } else {
+      coords := [1, 0]
+    }
+  }
+  return reflectCStickCoords(coords)
 }
 
 reflectCoords(coords) {
@@ -287,172 +482,26 @@ reflectCoords(coords) {
   return [x, y]
 }
 
-getAnalogCoordsAirdodge() {
-  global
-  if (neither(anyVert(), anyHoriz())) {
-    lastCoordTrace := "L-O"
-    return coordsOrigin
-  } else if (anyQuadrant()) {
-    if (modX()) {
-      lastCoordTrace := "L-Q-X"
-      return coordsAirdodgeQuadrantModX
-    } else if (modY()) {
-      lastCoordTrace := "L-Q-Y"
-      return up() ? coordsAirdodgeQuadrant12ModY : coordsAirdodgeQuadrant34ModY
-    } else {
-      lastCoordTrace := "L-Q"
-      return up() ? coordsAirdodgeQuadrant12 : coordsAirdodgeQuadrant34
-    }
-  } else if (anyVert()) {
-	if (modX()) {
-      lastCoordTrace := "L-V-X"
-      return coordsAirdodgeVerticalModX
-    } else if (modY()) {
-      lastCoordTrace := "L-V-Y"
-      return coordsAirdodgeVerticalModY
-    } else {
-      lastCoordTrace := "L-V"
-      return coordsAirdodgeVertical
-    }
-  } else {
-    if (modX()) {
-      lastCoordTrace := "L-H-X"
-      return coordsAirdodgeHorizontalModX
-    } else if (modY()) {
-      lastCoordTrace := "L-H-Y"
-      return buttonB ? coordsAirdodgeHorizontal: coordsAirdodgeHorizontalModY ; turnaround side-b nerf
-    } else {
-      lastCoordTrace := "L-H"
-      return coordsAirdodgeHorizontal
-    }
-  }
-}
-
-getAnalogCoordsWithNoShield() {
-  global
-  if (neither(anyVert(), anyHoriz())) {
-    lastCoordTrace := "N-O"
-    return coordsOrigin
-  } else if (anyQuadrant()) {
-    if (modX()) {
-      lastCoordTrace := "N-Q-X"
-      return coordsQuadrantModX
-    } else if (modY()) {
-      lastCoordTrace := "N-Q-Y"
-      return coordsQuadrantModY
-    } else {
-      lastCoordTrace := "N-Q"
-      return coordsQuadrant
-    }
-  } else if (anyVert()) {
-    if (modX()) {
-      lastCoordTrace := "N-V-X"
-      return coordsVerticalModX
-    } else if (modY()) {
-      lastCoordTrace := "N-V-Y"
-      return coordsVerticalModY
-    } else {
-      lastCoordTrace := "N-V"
-      return coordsVertical
-    }
-  } else {
-    if (modX()) {
-      lastCoordTrace := "N-H-X"
-      return coordsHorizontalModX
-    } else if (modY()) {
-      lastCoordTrace := "N-H-Y"
-      return buttonB ? coordsHorizontal : coordsHorizontalModY ; turnaround side-b nerf
-    } else {
-      lastCoordTrace := "N-H"
-      return coordsHorizontal
-    }
-  }
-}
-
-getAnalogCoordsFirefox() {
-  global
-  if (modX()) {
-    if (cUp()) {
-      lastCoordTrace := "F-X-U"
-      return buttonB ? coordsExtendedFirefoxModXCUp : coordsFirefoxModXCUp
-    } else if (cDown()) {
-      lastCoordTrace := "F-X-D"
-      return buttonB ? coordsExtendedFirefoxModXCDown : coordsFirefoxModXCDown
-    } else if (cLeft()) {
-      lastCoordTrace := "F-X-L"
-      return buttonB ? coordsExtendedFirefoxModXCLeft : coordsFirefoxModXCLeft
-    } else if (cRight()) {
-      lastCoordTrace := "F-X-R"
-      return buttonB ? coordsExtendedFirefoxModXCRight : coordsFirefoxModXCRight
-    } else {
-      lastCoordTrace := "F-X"
-      return coordsExtendedFirefoxModX
-    }
-  } else if (modY()) {
-    if (cUp()) {
-      lastCoordTrace := "F-Y-U"
-      return buttonB ? coordsExtendedFirefoxModYCUp : coordsFirefoxModYCUp
-    } else if (cDown()) {
-      lastCoordTrace := "F-Y-D"
-      return buttonB ? coordsExtendedFirefoxModYCDown : coordsFirefoxModYCDown
-    } else if (cLeft()) {
-      lastCoordTrace := "F-Y-L"
-      return buttonB ? coordsExtendedFirefoxModYCLeft : coordsFirefoxModYCLeft
-    } else if (cRight()) {
-      lastCoordTrace := "F-Y-R"
-      return buttonB ? coordsExtendedFirefoxModYCRight : coordsFirefoxModYCRight
-    } else {
-      lastCoordTrace := "F-Y"
-      return coordsExtendedFirefoxModY
-    }
-  }
-}
-
-setAnalogStick(coords) {
-  global
-  convertedCoords := convertCoords(coords)
-  myStick.SetAxisByIndex(convertedCoords[1], 1)
-  myStick.SetAxisByIndex(convertedCoords[2], 2)
-}
-
-getCStickCoords() {
-  global
-  if (neither(anyVertC(), anyHorizC())) {
-    coords := [0, 0]
-  } else if (anyVertC() and anyHorizC()) {
-    coords := [0.525, 0.85]
-  } else if (anyVertC()) {
-      coords := [0, 1]
-  } else {
-    if (modX() and up()) {
-      coords := [0.9, 0.5]
-    } else if (modX() and down()) {
-      coords := [0.9, -0.5]
-    } else {
-      coords := [1, 0]
-    }
-  }
-
-  return reflectCStickCoords(coords)
-}
-
 reflectCStickCoords(coords) {
-  x := coords[1]
-  y := coords[2]
+  cx := coords[1]
+  cy := coords[2]
   if (cDown()) {
-    y := -y
+    cy := -cy
   }
   if (cLeft()) {
-    x := -x
+    cx := -cx
   }
-  return [x, y]
+  return [cx, cy]
 }
 
-setCStick(coords) {
-  global
-  convertedCoords := convertCoords(coords)
-  myStick.SetAxisByIndex(convertedCoords[1], 4)
-  myStick.SetAxisByIndex(convertedCoords[2], 5)
+reflectByRegion(coords,region){
+  x := coords[1]
+  y := coords[2]
+  if (region == 4 or region == 6)
+    x:= -x 
+  if (region >= 6)
+    y := -y
+  return [x,y]
 }
 
 ; Converts coordinates from melee values (-1 to 1) to vJoy values (0 to 32767).
@@ -481,10 +530,87 @@ setAnalogR(value) {
   myStick.SetAxisByIndex(convertedValue, 3)
 }
 
+up() {
+  global
+  return states["Analog Up"]
+}
+
+down() {
+  global
+  return states["Analog Down"]
+}
+
+left() {
+  global
+  return states["Analog Left"]
+}
+
+right() {
+  global
+  return states["Analog Right"]
+}
+
+anyHoriz() {
+  global
+  return left() or right()
+}
+
+anyVert() {
+  global
+  return up() or down()
+}
+
+cLeft() {
+  global
+  return states["C-Stick Left"]
+}
+
+cRight() {
+  global
+  return states["C-Stick Right"]
+}
+
+cUp() {
+  global
+  return states["C-Stick Up"]
+}
+
+cDown() {
+  global
+  return states["C-Stick Down"]
+}
+
+anyHorizC() {
+  global
+  return cLeft() or cRight()
+}
+
+anyVertC() {
+  global
+  return cUp() or cDown()
+}
+
+bothMods(){
+  global
+  return states["Notch"] and states["Slow"]
+}
+
+noPressed(){
+  global
+  return not up() and not down() and not left() and not right()
+}
+
 neither(a, b) {
   return (not a) and (not b)
 }
 
+atan2(y, x) {
+   return dllcall("msvcrt\atan2", "Double", y, "Double", x, "CDECL Double")
+}
+
+sign(nr) {
+	return (nr>0)-(nr<0)
+}
 validateHK(GuiControl) {
  global lastHK
  Gui, Submit, NoHide
@@ -520,12 +646,12 @@ checkDuplicateHK(num) {
 
 setHK(num,INI,GUI) {
  If INI{                          ;If previous hotkey exists,
-  Hotkey, %INI%, Label%num%, Off  ;  disable it.
-  Hotkey, %INI% UP, Label%num%_UP, Off  ;  disable it.
+  ; Hotkey, %INI%, Label%num%, Off  ;  disable it.
+  ; Hotkey, %INI% UP, Label%num%_UP, Off  ;  disable it.
 }
  If GUI{                           ;If new hotkey exists,
-  Hotkey, %GUI%, Label%num%, On   ;  enable it.
-  Hotkey, %GUI% UP, Label%num%_UP, On   ;  enable it.
+  ; Hotkey, %GUI%, Label%num%, On   ;  enable it.
+  ; Hotkey, %GUI% UP, Label%num%_UP, On   ;  enable it.
 }
  IniWrite,% GUI ? GUI:null, hotkeys.ini, Hotkeys, %num%
  savedHK%num%  := HK%num%
@@ -566,15 +692,11 @@ HotkeyCtrlHasFocus() {
   Return, ctrl
  }
 }
-
-
-;----------------------------Labels
-
 ;Show GUI from tray Icon
 ShowGui:
     Gui, show,, Dynamic Hotkeys
     GuiControl, Focus, LB1 ; this puts the windows "focus" on the checkbox, that way it isn't immediately waiting for input on the 1st input box
-return
+return                                                               ;Check the box if Win modifier is used.
 
 GuiLabel:
  If %A_GuiControl% in +,^,!,+^,+!,^!,+^!    ;If the hotkey contains only modifiers, return to wait for a key.
@@ -584,437 +706,3 @@ GuiLabel:
  Else
   validateHK(A_GuiControl)
 return
-
-;-------macros
-
-Pause::Suspend
-^!r:: Reload
-SetKeyDelay, 0
-#MaxHotkeysPerInterval 200
-
-^!s::
-  Suspend
-    If A_IsSuspended
-        TrayTip, B0XX, Hotkeys Disabled, 3, 0
-    Else
-        TrayTip, B0XX, Hotkeys Enabled, 3, 0
-  Return
-
-
-; Analog Up
-Label1:
-  buttonUp := true
-  mostRecentVertical := "U"
-  updateAnalogStick()
-  updateCStick()
-  return
-
-Label1_UP:
-  buttonUp := false
-  updateAnalogStick()
-  updateCStick()
-  return
-
-; Analog Down
-Label2:
-  buttonDown := true
-  mostRecentVertical := "D"
-  updateAnalogStick()
-  updateCStick()
-  return
-
-Label2_UP:
-  buttonDown := false
-  updateAnalogStick()
-  updateCStick()
-  return
-
-; Analog Left
-Label3:
-  buttonLeft := true
-  mostRecentHorizontal := "L"
-  if (buttonRight) {
-    simultaneousHorizontalModifierLockout := true
-  }
-  updateAnalogStick()
-  return
-
-Label3_UP:
-  buttonLeft := false
-  simultaneousHorizontalModifierLockout := false
-  updateAnalogStick()
-  return
-
-; Analog Right
-Label4:
-  buttonRight := true
-  mostRecentHorizontal := "R"
-  if (buttonLeft) {
-    simultaneousHorizontalModifierLockout := true
-  }
-  updateAnalogStick()
-  return
-
-Label4_UP:
-  buttonRight := false
-  simultaneousHorizontalModifierLockout := false
-  updateAnalogStick()
-  return
-
-; ModX
-Label5:
-  buttonModX := true
-  simultaneousHorizontalModifierLockout := false ; Lockout is order dependant, only applies if modifier isn't pressed after horizontals
-  updateAnalogStick()
-  updateCStick()
-  return
-
-Label5_UP:
-  buttonModX := false
-  simultaneousHorizontalModifierLockout := false
-  updateAnalogStick()
-  updateCStick()
-  return
-
-; ModY
-Label6:
-  buttonModY := true
-  updateAnalogStick()
-  return
-
-Label6_UP:
-  buttonModY := false
-  updateAnalogStick()
-  return
-
-; A
-Label7:
-  buttonA := true
-  myStick.SetBtn(1,5)
-  return
-
-Label7_UP:
-  buttonA := false
-  myStick.SetBtn(0,5)
-  return
-
-; B
-Label8:
-  buttonB := true
-  myStick.SetBtn(1, 4)
-  updateAnalogStick()
-  return
-
-Label8_UP:
-  buttonB := false
-  myStick.SetBtn(0, 4)
-  updateAnalogStick()
-  return
-
-; L
-Label9:
-  buttonL := true
-  myStick.SetBtn(1, 1)
-  updateAnalogStick()
-  return
-
-Label9_UP:
-  buttonL := false
-  myStick.SetBtn(0, 1)
-  updateAnalogStick()
-  return
-
-; R
-Label10:
-  buttonR := true
-  myStick.SetBtn(1, 3)
-  updateAnalogStick()
-  return
-
-Label10_UP:
-  buttonR := false
-  myStick.SetBtn(0, 3)
-  updateAnalogStick()
-  return
-
-; X
-Label11:
-  buttonX := true
-  myStick.SetBtn(1, 6)
-  return
-
-Label11_UP:
-  buttonX := false
-  myStick.SetBtn(0, 6)
-  return
-
-; Y
-Label12:
-  buttonY := true
-  myStick.SetBtn(1, 2)
-  return
-
-Label12_UP:
-  buttonY := false
-  myStick.SetBtn(0, 2)
-  return
-
-; Z
-Label13:
-  buttonZ := true
-  myStick.SetBtn(1, 7)
-  updateAnalogStick()
-  return
-
-Label13_UP:
-  buttonZ := false
-  myStick.SetBtn(0, 7)
-  updateAnalogStick()
-  return
-
-; C Up
-Label14:
-  buttonCUp := true
-  if (bothMods()) {
-    ; Pressing ModX and ModY simultaneously changes C buttons to D pad
-    myStick.SetBtn(1, 9)
-  } else {
-    mostRecentVerticalC := "U"
-    updateCStick()
-    updateAnalogStick()
-  }
-  return
-
-Label14_UP:
-  buttonCUp := false
-  myStick.SetBtn(0, 9)
-  updateCStick()
-  updateAnalogStick()
-  return
-
-; C Down
-Label15:
-  buttonCDown := true
-  if (bothMods()) {
-    ; Pressing ModX and ModY simultaneously changes C buttons to D pad
-    myStick.SetBtn(1, 11)
-  } else {
-    mostRecentVerticalC := "D"
-    updateCStick()
-    updateAnalogStick()
-  }
-  return
-
-Label15_UP:
-  buttonCDown := false
-  myStick.SetBtn(0, 11)
-  updateCStick()
-  updateAnalogStick()
-  return
-
-; C Left
-Label16:
-  buttonCLeft := true
-  if (bothMods()) {
-    ; Pressing ModX and ModY simultaneously changes C buttons to D pad
-    myStick.SetBtn(1, 10)
-  } else {
-    mostRecentHorizontalC := "L"
-    updateCStick()
-    updateAnalogStick()
-  }
-  return
-
-Label16_UP:
-  buttonCLeft := false
-  myStick.SetBtn(0, 10)
-  updateCStick()
-  updateAnalogStick()
-  return
-
-; C Right
-Label17:
-  buttonCRight := true
-  if (bothMods()) {
-    ; Pressing ModX and ModY simultaneously changes C buttons to D pad
-    myStick.SetBtn(1, 12)
-  } else {
-    mostRecentHorizontalC := "R"
-    updateCStick()
-    updateAnalogStick()
-  }
-  return
-
-Label17_UP:
-  buttonCRight := false
-  myStick.SetBtn(0, 12)
-  updateCStick()
-  updateAnalogStick()
-  return
-
-; Lightshield (Light)
-Label18:
-  buttonLightShield := true
-  setAnalogR(49)
-  return
-
-Label18_UP:
-  buttonLightShield := false
-  setAnalogR(0)
-  return
-
-; Lightshield (Medium)
-Label19:
-  buttonMidShield := true
-  setAnalogR(94)
-  return
-
-Label19_UP:
-  buttonMidShield := false
-  setAnalogR(0)
-  return
-
-; Start
-Label20:
-  myStick.SetBtn(1, 8)
-  return
-
-Label20_UP:
-  myStick.SetBtn(0, 8)
-  return
-
-; D Up
-Label21:
-  myStick.SetBtn(1, 9)
-  return
-
-Label21_UP:
-  myStick.SetBtn(0, 9)
-  return
-
-; D Down
-Label22:
-  myStick.SetBtn(1, 11)
-  return
-
-Label22_UP:
-  myStick.SetBtn(0, 11)
-  return
-
-; D Left
-Label23:
-  myStick.SetBtn(1, 10)
-  return
-
-Label23_UP:
-  myStick.SetBtn(0, 10)
-  return
-
-; D Right
-Label24:
-  myStick.SetBtn(1, 12)
-  return
-
-Label24_UP:
-  myStick.SetBtn(0, 12)
-  return
-
-; Debug
-Label25:
-  debugString := getDebug()
-  Msgbox % debugString
-
-Label25_UP:
-  return
-
-getDebug() {
-  global
-  activeArray := []
-  pressedArray := []
-  flagArray := []
-
-  appendButtonState(activeArray, pressedArray, up(), buttonUp, "Up")
-  appendButtonState(activeArray, pressedArray, down(), buttonDown, "Down")
-  appendButtonState(activeArray, pressedArray, left(), buttonLeft, "Left")
-  appendButtonState(activeArray, pressedArray, right(), buttonRight, "Right")
-
-  appendButtonState(activeArray, pressedArray, modX(), buttonModX, "ModX")
-  appendButtonState(activeArray, pressedArray, modY(), buttonModY, "ModY")
-
-  appendButtonState(activeArray, pressedArray, buttonA, false, "A")
-  appendButtonState(activeArray, pressedArray, buttonB, false, "B")
-  appendButtonState(activeArray, pressedArray, buttonL, false, "L")
-  appendButtonState(activeArray, pressedArray, buttonR, false, "R")
-  appendButtonState(activeArray, pressedArray, buttonX, false, "X")
-  appendButtonState(activeArray, pressedArray, buttonY, false, "Y")
-  appendButtonState(activeArray, pressedArray, buttonZ, false, "Z")
-
-  appendButtonState(activeArray, pressedArray, buttonLightShield, false, "LightShield")
-  appendButtonState(activeArray, pressedArray, buttonMidShield, false, "MidShield")
-
-  appendButtonState(activeArray, pressedArray, CUp(), buttonCUp, "C-Up")
-  appendButtonState(activeArray, pressedArray, CDown(), buttonCDown, "C-Down")
-  appendButtonState(activeArray, pressedArray, CLeft(), buttonCLeft, "C-Left")
-  appendButtonState(activeArray, pressedArray, CRight(), buttonCRight, "C-Right")
-
-  conditionalAppend(flagArray, simultaneousHorizontalModifierLockout, "SHML")
-
-  activeButtonList := stringJoin(", ", activeArray)
-  pressedButtonList := stringJoin(", ", pressedArray)
-  flagList := stringJoin(", ", flagArray)
-
-  trace1 := lastCoordTrace
-
-  analogCoords := getAnalogCoords()
-  cStickCoords := getCStickCoords()
-
-  trace2 := lastCoordTrace
-
-  trace := trace1 == trace2 ? trace1 : Format("{1}/{2}", trace1, trace2)
-
-  debugFormatString = 
-  (
-
-    Analog Stick: [{1}, {2}]
-    C Stick: [{3}, {4}]
-
-    Active held buttons:
-        {5}
-
-    Disabled held buttons:
-        {6}
-
-    Flags:
-        {7}
-
-    Trace:
-        {8}
-  )
-
-  return Format(debugFormatString
-    , analogCoords[1], analogCoords[2]
-    , cStickCoords[1], cStickCoords[2]
-    , activeButtonList, pressedButtonList, flagList
-    , trace)
-}
-
-appendButtonState(activeArray, pressedArray, isActive, isPressed, name) {
-  if (isActive) {
-    activeArray.Push(name)
-  } else if (isPressed) {
-    pressedArray.Push(name)
-  }
-}
-
-conditionalAppend(array, condition, value) {
-  if (condition) {
-    array.Push(value)
-  }
-}
-
-; From https://www.autohotkey.com/boards/viewtopic.php?t=7124
-stringJoin(sep, params) {
-    for index,param in params
-        str .= param . sep
-    return SubStr(str, 1, -StrLen(sep))
-}
