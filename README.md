@@ -1,7 +1,7 @@
 # APRESS-AHK
 apress-ahk is an Autohotkey script emulating the experimental Analog Press control scheme through a keyboard within Dolphin. It is a fork of [b0xx-ahk](https://github.com/agirardeau/b0xx-ahk) by agirardeau, which in turn is an adaptation of a [similar script](https://github.com/tlandegger/smashbox-AHK) for Smashbox created by tlandegger.
 
-Analog press is a digital to analog (DTA) input scheme which I created, that aims to make digital controllers more 'analog-like'. You can read about how it works [here](https://github.com/SeamusIngram/analog-press). I wanted to allow people the chance to actually play the game and provide feedback on this control scheme, without needing to buy a DIY controller, since the only other way to play is with Arte's [pico-rectangle firmware](https://github.com/SeamusIngram/pico-rectangle/tree/analog-press).
+Analog press is a digital to analog (DTA) input scheme which I created, that aims to make digital controllers more 'analog-like'. You can read about how it works [here](https://github.com/SeamusIngram/analog-press). I wanted to allow people the chance to actually play the game and provide feedback on this control scheme, without needing to buy a DIY controller, since the only other way to play is with my fork of Arte's [pico-rectangle firmware](https://github.com/SeamusIngram/pico-rectangle).
 
 I am unaffiliated with the creators/producers of the B0XX, or the developers of the other keyboard melee options. 
 
