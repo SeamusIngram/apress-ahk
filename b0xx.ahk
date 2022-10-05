@@ -79,10 +79,10 @@ forbidRight := false
 forbidUp := false
 forbidDown := false
 ; Stick Speeds
-V_FAST := 5
+V_FAST := 6
 V_SLOW := 0.5
 V_RETURN := 3
-V_ROLL := 3 
+V_ROLL := 1.5 
 ; Analog Press parameters
 resetHold := true
 dxAccum = 0
@@ -219,7 +219,8 @@ setAnalogStick(coords) {
 getAnalogCoords() {
   global
   DllCall("QueryPerformanceCounter", "Int64*", tNew)
-  dt := (tNew - t)* 1000 / freq 
+  dt := (tNew - t)* 1000 / freq
+  DllCall("QueryPerformanceCounter", "Int64*", t)
   targetPoint := target()
   currentRegion := getRegion(xy)
   targetRegion := getRegion(targetPoint)
@@ -243,7 +244,6 @@ getAnalogCoords() {
     xy := getAnalogCoordsRolling()
   else
     xy := getAnalogCoordsDefault()
-  DllCall("QueryPerformanceCounter", "Int64*", t)
   return scaleCoords(xy)
 }
 
